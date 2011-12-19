@@ -11,6 +11,7 @@ Create a new client:
 Edge manipulation:
 
     client.add(1, "follows", 2)
+    client.remove(1, "follows", 2)
 
 Perform a query:
 
