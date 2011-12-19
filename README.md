@@ -16,3 +16,5 @@ Perform a query:
 
     client.get(1, "follows", None)
     => (2,)
+    client.get(None, "follows", 2)
+    => (1,)
