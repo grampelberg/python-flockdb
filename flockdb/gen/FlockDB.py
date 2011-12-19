@@ -193,6 +193,7 @@ class Client(Iface):
 
   def recv_get_metadata(self, ):
     (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    print TMessageType.EXCEPTION
     if mtype == TMessageType.EXCEPTION:
       x = TApplicationException()
       x.read(self._iprot)
