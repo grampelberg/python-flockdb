@@ -26,18 +26,27 @@ class Client(object):
         self.graphs = graphs
 
     def add(self, source, graph, dest):
-        """ client.add(source_id, "graph_string", [dest_ids]) """
-        if isinstance(dest, int):
-            dest = [dest]
-        return self.server.execute(ttypes.ExecuteOperations(
-                operations=[ttypes.ExecuteOperation(
-                        operation_type=ttypes.ExecuteOperationType.Add,
-                        term=self._query_term(source, graph, dest)
-                        )],
-                priority=ttypes.Priority.High))
+        """ client.add(source_id, "graph_string", dest_id || [dest_ids]) """
+        return self.server.execute(self._execute_operation(
+                source, graph, dest,
+                ttypes.ExecuteOperationType.Add))
+
+    def remove(self, source, graph, dest):
+        """ client.remove(source_id, "graph_string", dest_id || [dest_ids]) """
+        return self.server.execute(self._execute_operation(
+                source, graph, dest,
+                ttypes.ExecuteOperationType.Remove))
+
+    def _execute_operation(self, source, graph, dest, _type):
+        return ttypes.ExecuteOperations(
+            operations=[ttypes.ExecuteOperation(
+                    operation_type=_type,
+                    term=self._query_term(source, graph, dest)
+                    )],
+            priority=ttypes.Priority.High)
 
     def get(self, source, graph, dest):
-        """ client.get(source_id, "graph"=_string", dest_id) """
+        """ client.get(source_id, "graph"=_string", dest_id || [dest_ids]) """
         return self._unpack(self.server.select2([
                     ttypes.SelectQuery(
                         [ttypes.SelectOperation(

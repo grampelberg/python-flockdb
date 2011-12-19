@@ -32,6 +32,11 @@ class Client(flockdb.test.utils.SilentLog):
                         "Edge should be in the result set")
         return result
 
+    def assert_no_edge(self, *args):
+        result = self.client.get(*args)
+        self.assertEqual(0, len(result),
+                         "This edge doesn't exist")
+
     def test_add(self):
         tests = [[random.randint(0, 1000) for x in range(2)] for y in range(2)]
 
@@ -51,27 +56,31 @@ class Client(flockdb.test.utils.SilentLog):
 
         # Missing!
         source, dest = tests[0]
-        result = self.client.get(source, "block", dest)
-        self.assertEqual(0, len(result),
-                         "This edge doesn't exist")
-        result = self.client.get(dest, "follow", source)
-        self.assertEqual(0, len(result),
-                         "This edge doesn't exist")
+        self.assert_no_edge(source, "block", dest)
+        self.assert_no_edge(dest, "follow", source)
 
     def test_get(self):
         source = random.randint(0, 1000)
         dest = random.randint(0, 1000)
 
         # Straight get.
-        result = self._add(source, 'follow', dest)
-        self.assert_edge(source, "follow", dest)
+        query = (source, 'follow', dest)
+        result = self._add(*query)
+        self.assert_edge(*query)
 
         # What edges come off a node
-        result = self.client.get(source, "follow", None)
-        self.assertTrue(dest in result,
-                        "Edge should be in result set")
+        self.assert_edge(source, "follow", None)
 
         # Edges incoming to a node
-        result = self.client.get(None, "follow", dest)
-        self.assertTrue(source in result,
-                        "Edge should be in result set")
+        self.assert_edge(None, "follow", dest)
+
+    def test_remove(self):
+        source = random.randint(0, 1000)
+        dest = random.randint(0, 1000)
+        query = (source, 'follow', dest)
+        result = self._add(*query)
+        self.assert_edge(*query)
+
+        self.client.remove(*query)
+        time.sleep(0.2)
+        self.assert_no_edge(*query)
