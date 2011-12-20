@@ -19,3 +19,5 @@ Perform a query:
     => (2,)
     client.get(None, "follows", 2)
     => (1,)
+    client.get_all([(1, "follows", 2), (2, "follows", 3)])
+    => [(2,), ()]
