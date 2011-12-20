@@ -26,13 +26,19 @@ class Client(object):
         self.graphs = graphs
 
     def add(self, source, graph, dest):
-        """ client.add(source_id, "graph_string", dest_id || [dest_ids]) """
+        """
+        client.add(source_id, "graph_string", dest_id || [dest_ids])
+        => None
+        """
         return self.server.execute(self._execute_operation(
                 source, graph, dest,
                 ttypes.ExecuteOperationType.Add))
 
     def remove(self, source, graph, dest):
-        """ client.remove(source_id, "graph_string", dest_id || [dest_ids]) """
+        """
+        client.remove(source_id, "graph_string", dest_id || [dest_ids])
+        => None
+        """
         return self.server.execute(self._execute_operation(
                 source, graph, dest,
                 ttypes.ExecuteOperationType.Remove))
@@ -46,18 +52,45 @@ class Client(object):
             priority=ttypes.Priority.High)
 
     def get(self, source, graph, dest):
-        """ client.get(source_id, "graph"=_string", dest_id || [dest_ids]) """
-        return self._unpack(self.server.select2([
+        """
+        client.get(source_id, "graph_string", dest_id || [dest_ids])
+        => (edges,)
+        """
+        return self.get_all([(source, graph, dest)])[0]
+
+    def get_all(self, queries):
+        """
+        client.get_all([source_id, "graph_string", dest_id || [dest_ids]])
+        => [ result_1, result_2 ]
+        """
+        return [self._unpack(x.ids) for x in self.server.select2([
                     ttypes.SelectQuery(
                         [ttypes.SelectOperation(
                                 operation_type=\
                                     ttypes.SelectOperationType.SimpleQuery,
-                                term=self._query_term(source, graph, dest)
+                                term=self._query_term(*x)
                                 )
-                            ],
+                         ],
                         ttypes.Page(100, -1)
                         )
-                    ])[0].ids)
+                    for x in queries])]
+
+
+    def get_metadata(self, source, graph):
+        """
+        client.get_metadata(source,_id, "graph_string")
+        => obj.source_id/state_id/count/updated_at
+        """
+        return self.server.get_metadata(source, self.graphs.get(graph))
+
+    def batch(self):
+        return
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
 
     def _pack(self, l):
         if isinstance(l, int):

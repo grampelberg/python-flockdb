@@ -26,9 +26,9 @@ class Client(flockdb.test.utils.SilentLog):
         time.sleep(0.2)
         return result
 
-    def assert_edge(self, source, graph, dest):
+    def assert_edge(self, source, graph, dest, k=None):
         result = self.client.get(source, graph, dest)
-        self.assertTrue(dest in result,
+        self.assertTrue(dest or k in result,
                         "Edge should be in the result set")
         return result
 
@@ -69,16 +69,51 @@ class Client(flockdb.test.utils.SilentLog):
         self.assert_edge(*query)
 
         # What edges come off a node
-        self.assert_edge(source, "follow", None)
+        self.assert_edge(source, "follow", None, k=dest)
 
         # Edges incoming to a node
-        self.assert_edge(None, "follow", dest)
+        self.assert_edge(None, "follow", dest, k=source)
+
+    def test_get_all(self):
+        tests = [(random.randint(0, 1000), "follow", random.randint(0, 1000))
+                 for y in range(5)]
+
+        for i in tests:
+            self._add(*i)
+
+        for i, j in zip(tests, self.client.get_all(tests)):
+            self.assertTrue(i[-1] in j,
+                            "Edge should be in the result")
+
+    def test_get_metadata(self):
+        source = random.randint(0, 1000)
+        dest = random.randint(0, 1000)
+        query = (source, 'follow', dest)
+        self._add(*query)
+        self.assert_edge(*query)
+
+        result = self.client.get_metadata(source, "follow")
+        self.assertEqual(result.source_id, source,
+                         "Got the right node back")
+        self.assertEqual(result.state_id, 0,
+                         "Still in a positive state")
+        self.assertEqual(result.count, 1,
+                         "Only one edge")
+        self.assertEqual(result.updated_at, 0,
+                         "Library looks broken")
+
+        self._add(source, 'follow', random.randint(0, 1000))
+        result = self.client.get_metadata(source, "follow")
+        self.assertEqual(result.count, 2,
+                         "Two edges now")
+        logging.info(result)
+        assert False
 
     def test_remove(self):
         source = random.randint(0, 1000)
         dest = random.randint(0, 1000)
         query = (source, 'follow', dest)
-        result = self._add(*query)
+        self._add(*query)
         self.assert_edge(*query)
 
         self.client.remove(*query)
