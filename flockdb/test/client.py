@@ -11,6 +11,8 @@ import unittest
 import flockdb.client
 import flockdb.test.utils
 
+# XXX - Need to test very large 64bit values, there's a nasty fight between
+# signed and unsigned long longs
 class Client(flockdb.test.utils.SilentLog):
 
     def setUp(self):

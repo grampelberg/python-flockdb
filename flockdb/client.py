@@ -93,12 +93,14 @@ class Client(object):
         pass
 
     def _pack(self, l):
+        # Note that it is very important to use `q` instead of `Q`. The binary
+        # protocol assumes signed and will choke on unsigned.
         if isinstance(l, int):
             l = [l]
-        return struct.pack('Q' * len(l), *l)
+        return struct.pack('q' * len(l), *l)
 
     def _unpack(self, s):
-        return struct.unpack('Q' * (len(s) / 8), s)
+        return struct.unpack('q' * (len(s) / 8), s)
 
     def _query_term(self, source, graph, dest):
         is_forward = True
