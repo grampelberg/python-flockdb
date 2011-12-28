@@ -13,6 +13,8 @@ from flockdb.gen import ttypes
 
 class Client(object):
 
+    page_length = 500
+
     def __init__(self, host, port, graphs):
         """ Client("server_host", port_number, { "edge_1": 1, "edge_2": 2 })
         """
@@ -71,7 +73,7 @@ class Client(object):
                                 term=self._query_term(*x)
                                 )
                          ],
-                        ttypes.Page(100, -1)
+                        ttypes.Page(self.page_length, -1)
                         )
                     for x in queries])]
 
