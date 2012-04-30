@@ -2,9 +2,9 @@
 
 Create a new client:
 
-    import flockdb.client
-    client = flockdb.client.Client("localhost", 7915", {
-        "follow": 1,
+    import flockdb
+    client = flockdb.Client("localhost", 7915, {
+        "follows": 1,
         "blocks": 2,
         })
 

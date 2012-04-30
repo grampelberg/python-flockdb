@@ -8,25 +8,32 @@ import random
 import time
 import unittest
 
-import flockdb.client
+import flockdb
 import flockdb.test.utils
 
-# XXX - Need to test very large 64bit values, there's a nasty fight between
-# signed and unsigned long longs
 class Client(flockdb.test.utils.SilentLog):
 
     def setUp(self):
-        self.client = flockdb.client.Client("localhost", 7915, {
-                "follow": 1,
-                "block": 2,
-                })
+        self.client = flockdb.Client("localhost", 7915, {
+            "follows": 1,
+            "blocks": 2,
+        })
 
-    def _add(self, *args):
-        result = self.client.add(*args)
+    @staticmethod
+    def random_id():
+        milliseconds_since_epoch = long(time.time() * 1000)
+        random_bits = random.getrandbits(20)
+        return (milliseconds_since_epoch << 20) + random_bits
+
+    def _add_all(self, edges):
+        for edge in edges:
+            self.client.add(*edge)
         # Since flockdb is eventually consistent, there needs to be a little
         # time before moving on to a get.
         time.sleep(0.2)
-        return result
+
+    def _add(self, *args):
+        self._add_all([args])
 
     def assert_edge(self, source, graph, dest, k=None):
         result = self.client.get(source, graph, dest)
@@ -40,61 +47,60 @@ class Client(flockdb.test.utils.SilentLog):
                          "This edge doesn't exist")
 
     def test_add(self):
-        tests = [[random.randint(0, 1000) for x in range(2)] for y in range(2)]
+        tests = [[self.random_id() for x in range(2)] for y in range(2)]
 
         source, dest = tests[0]
-        result = self._add(source, "follow", dest)
-        result = self.assert_edge(source, "follow", dest)
+        result = self._add(source, "follows", dest)
+        result = self.assert_edge(source, "follows", dest)
         self.assertEqual(1, len(result),
                          "Should only be one result")
 
         # Test multiple graphs
         source, dest = tests[1]
-        self._add(source, "block", dest)
-        result = self.assert_edge(source, "block", dest)
+        self._add(source, "blocks", dest)
+        result = self.assert_edge(source, "blocks", dest)
         self.assertEqual(
             1, len(result),
             "This is a different graph, should only be one result")
 
         # Missing!
         source, dest = tests[0]
-        self.assert_no_edge(source, "block", dest)
-        self.assert_no_edge(dest, "follow", source)
+        self.assert_no_edge(source, "blocks", dest)
+        self.assert_no_edge(dest, "follows", source)
 
     def test_get(self):
-        source = random.randint(0, 1000)
-        dest = random.randint(0, 1000)
+        source = self.random_id()
+        dest = self.random_id()
 
         # Straight get.
-        query = (source, 'follow', dest)
+        query = (source, 'follows', dest)
         result = self._add(*query)
         self.assert_edge(*query)
 
         # What edges come off a node
-        self.assert_edge(source, "follow", None, k=dest)
+        self.assert_edge(source, "follows", None, k=dest)
 
         # Edges incoming to a node
-        self.assert_edge(None, "follow", dest, k=source)
+        self.assert_edge(None, "follows", dest, k=source)
 
     def test_get_all(self):
-        tests = [(random.randint(0, 1000), "follow", random.randint(0, 1000))
+        tests = [(self.random_id(), "follows", self.random_id())
                  for y in range(5)]
 
-        for i in tests:
-            self._add(*i)
+        self._add_all(tests)
 
         for i, j in zip(tests, self.client.get_all(tests)):
             self.assertTrue(i[-1] in j,
                             "Edge should be in the result")
 
     def test_get_metadata(self):
-        source = random.randint(0, 1000)
-        dest = random.randint(0, 1000)
-        query = (source, 'follow', dest)
+        source = self.random_id()
+        dest = self.random_id()
+        query = (source, 'follows', dest)
         self._add(*query)
         self.assert_edge(*query)
 
-        result = self.client.get_metadata(source, "follow")
+        result = self.client.get_metadata(source, "follows")
         self.assertEqual(result.source_id, source,
                          "Got the right node back")
         self.assertEqual(result.state_id, 0,
@@ -104,20 +110,40 @@ class Client(flockdb.test.utils.SilentLog):
         self.assertEqual(result.updated_at, 0,
                          "Library looks broken")
 
-        self._add(source, 'follow', random.randint(0, 1000))
-        result = self.client.get_metadata(source, "follow")
+        self._add(source, 'follows', self.random_id())
+        result = self.client.get_metadata(source, "follows")
         self.assertEqual(result.count, 2,
                          "Two edges now")
         logging.info(result)
-        assert False
 
     def test_remove(self):
-        source = random.randint(0, 1000)
-        dest = random.randint(0, 1000)
-        query = (source, 'follow', dest)
+        source = self.random_id()
+        dest = self.random_id()
+        query = (source, 'follows', dest)
         self._add(*query)
         self.assert_edge(*query)
 
         self.client.remove(*query)
         time.sleep(0.2)
         self.assert_no_edge(*query)
+
+    def test_transaction(self):
+        source, dest1, dest2, dest3 = [self.random_id() for i in xrange(4)]
+
+        with self.client.transaction() as t:
+            t.add(source, 'follows', dest1)
+            t.add(source, 'follows', dest2)
+
+        time.sleep(0.2)
+        self.assert_edge(source, 'follows', dest1)
+        self.assert_edge(source, 'follows', dest2)
+
+        with self.client.transaction() as t:
+            t.remove(source, 'follows', dest2)
+            t.add(source, 'blocks', dest2)
+            t.add(source, 'follows', dest3)
+
+        time.sleep(0.2)
+        self.assert_no_edge(source, 'follows', dest2)
+        self.assert_edge(source, 'blocks', dest2)
+        self.assert_edge(source, 'follows', dest3)
